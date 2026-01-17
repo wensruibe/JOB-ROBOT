@@ -1,0 +1,515 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>金句卡片生成器</title>
+    <style>
+      :root { --bg1:#f9b8c4; --bg2:#c7b7ff; --bg3:#a7d3ff; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans", "Helvetica Neue", Arial, "Noto Serif SC", sans-serif;
+        background: linear-gradient(135deg, var(--bg1), var(--bg2) 50%, var(--bg3));
+        min-height: 100vh;
+        display: grid; grid-template-columns: 1fr 420px; gap: 16px; padding: 16px;
+      }
+      header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 10px; }
+      .brand { font-weight: 700; font-size: 18px; }
+      .app { display: contents; }
+      .preview { position: relative; background: radial-gradient(1200px 600px at 30% 20%, rgba(255,255,255,0.35), transparent 60%); border-radius:16px; overflow:hidden; padding:12px; }
+      canvas { width:1200px; height:900px; max-width:100%; border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.15); display:block; background:transparent; }
+      .panel { background:#fff; border:1px solid #eee; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.08); padding:16px; display:grid; gap:12px; align-content:start; }
+      .panel h2 { margin:0; font-size:16px; }
+      .field { display:grid; gap:6px; }
+      .field label { font-size:12px; color:#555; }
+      .field input[type="text"], .field textarea, .field select, .field input[type="number"] { padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:14px; }
+      .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .actions { display:flex; gap:8px; }
+      button { padding:10px 12px; border:none; border-radius:8px; background:#6c7bff; color:#fff; font-weight:600; cursor:pointer; }
+      button.secondary { background:#eef0ff; color:#334; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">金句卡片生成器</div>
+      <div class="actions">
+        <button id="resetBtn" class="secondary">重置</button>
+        <button id="downloadBtn">生成并下载</button>
+      </div>
+    </header>
+    <section class="app">
+      <div class="preview">
+        <canvas id="canvas" width="1200" height="900" aria-label="预览画布"></canvas>
+      </div>
+      <aside class="panel" aria-label="配置面板">
+        <h2>内容</h2>
+        <div class="field">
+          <label for="nickname">昵称/标题</label>
+          <input id="nickname" type="text" placeholder="例如：ConnorWu" />
+        </div>
+        <h2>主题与颜色</h2>
+        <div class="row">
+          <div class="field">
+            <label for="themePreset">主题预设</label>
+            <select id="themePreset">
+              <option value="sunrise">暖晨（粉→紫→蓝）</option>
+              <option value="mint">薄荷（绿→青→蓝）</option>
+              <option value="sunset">日落（橙→粉→紫）</option>
+              <option value="mono">灰雾（浅灰→中灰→深灰）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="tintStrength">颜色强度（卡片）</label>
+            <input id="tintStrength" type="range" min="0" max="100" value="35" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="quote">金句</label>
+          <textarea id="quote" rows="5" placeholder="请输入金句"></textarea>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="time">时间</label>
+            <input id="time" type="text" placeholder="16:14" />
+          </div>
+          <div class="field">
+            <label for="date">日期</label>
+            <input id="date" type="text" placeholder="18 Sep, 2025" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="autoTime">自动识别时间</label>
+          <input id="autoTime" type="checkbox" checked />
+        </div>
+        <h2>媒体</h2>
+        <div class="row">
+          <div class="field">
+            <label for="avatar">头像（≤2MB）</label>
+            <input id="avatar" type="file" accept="image/png, image/jpeg, image/webp" />
+          </div>
+          <div class="field">
+            <label for="badge">徽标（方形）</label>
+            <input id="badge" type="file" accept="image/png, image/jpeg, image/webp" />
+          </div>
+        </div>
+        <h2>背景与卡片</h2>
+        <div class="row">
+          <div class="field">
+            <label for="bgA">背景颜色A</label>
+            <input id="bgA" type="color" value="#f9b8c4" />
+          </div>
+          <div class="field">
+            <label for="bgB">背景颜色B</label>
+            <input id="bgB" type="color" value="#c7b7ff" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="bgC">背景颜色C</label>
+            <input id="bgC" type="color" value="#a7d3ff" />
+          </div>
+          <div class="field">
+            <label for="blur">背景模糊</label>
+            <input id="blur" type="number" min="0" max="40" value="20" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="radius">卡片圆角</label>
+            <input id="radius" type="number" min="12" max="40" value="24" />
+          </div>
+          <div class="field">
+            <label for="opacity">卡片透明度</label>
+            <input id="opacity" type="number" min="70" max="100" value="92" />
+          </div>
+        </div>
+        <h2>排版</h2>
+        <div class="row">
+          <div class="field">
+            <label for="quoteSize">正文字号</label>
+            <input id="quoteSize" type="number" min="18" max="36" value="28" />
+          </div>
+          <div class="field">
+            <label for="lineHeight">行距</label>
+            <input id="lineHeight" type="number" min="1.2" max="2.0" value="1.6" step="0.1" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="align">对齐</label>
+          <select id="align">
+            <option value="left">左对齐</option>
+            <option value="center">居中</option>
+            <option value="justify">两端对齐</option>
+          </select>
+        </div>
+        <h2>导出</h2>
+        <div class="row">
+          <div class="field">
+            <label for="sizePreset">尺寸</label>
+            <select id="sizePreset">
+              <option value="1200x900">1200×900（默认）</option>
+              <option value="1280x720">1280×720</option>
+              <option value="1080x1350">1080×1350</option>
+              <option value="1024x1024">1024×1024</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="scale">分辨率倍率</label>
+            <select id="scale">
+              <option value="1">1x</option>
+              <option value="2" selected>2x</option>
+              <option value="3">3x</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="format">格式</label>
+          <select id="format">
+            <option value="png">PNG</option>
+            <option value="jpeg">JPG</option>
+            <option value="webp">WEBP</option>
+          </select>
+        </div>
+      </aside>
+    </section>
+    <script>
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const $ = (id) => document.getElementById(id);
+      let exporting = false;
+      const palettes = {
+        sunrise: ['#f9b8c4','#c7b7ff','#a7d3ff'],
+        mint: ['#b9f6ca','#6fd3c6','#7ec8ff'],
+        sunset: ['#ffb36b','#f79ac0','#b79aff'],
+        mono: ['#ececec','#cfcfcf','#9f9f9f']
+      };
+      let autoTimeTimer = null;
+      function hexToRgb(hex) {
+        const h = hex.replace('#','');
+        const b = h.length === 3 ? h.split('').map(x=>x+x).join('') : h;
+        const i = parseInt(b,16);
+        return { r: (i>>16)&255, g: (i>>8)&255, b: i&255 };
+      }
+      const state = {
+        nickname: 'ConnorWu',
+        quote: '追求自由，落地来看就是培养逃逸的能力',
+        time: '16:14',
+        date: '18 Sep, 2025',
+        bgA: '#f9b8c4',
+        bgB: '#c7b7ff',
+        bgC: '#a7d3ff',
+        blur: 20,
+        radius: 24,
+        opacity: 0.92,
+        quoteSize: 28,
+        lineHeight: 1.6,
+        align: 'left',
+        size: { w: 1200, h: 900 },
+        scale: 2,
+        format: 'png',
+        avatarImg: null,
+        badgeImg: null,
+        tintStrength: 35,
+        autoTime: true
+      };
+      function setCanvasSize(w, h) { canvas.width = w; canvas.height = h; }
+      function drawRoundedRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+      function drawBackground() {
+        const { w, h } = state.size;
+        const grd = ctx.createLinearGradient(0, 0, w, h);
+        grd.addColorStop(0, state.bgA);
+        grd.addColorStop(0.5, state.bgB);
+        grd.addColorStop(1, state.bgC);
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, w, h);
+        const rad = ctx.createRadialGradient(w*0.3, h*0.2, 0, w*0.3, h*0.2, Math.max(w,h)*0.6);
+        rad.addColorStop(0, 'rgba(255,255,255,0.35)');
+        rad.addColorStop(1, 'transparent');
+        ctx.fillStyle = rad;
+        ctx.fillRect(0, 0, w, h);
+      }
+      function drawBackgroundLocal(targetCtx, w, h) {
+        const grd = targetCtx.createLinearGradient(0, 0, w, h);
+        grd.addColorStop(0, state.bgA);
+        grd.addColorStop(0.5, state.bgB);
+        grd.addColorStop(1, state.bgC);
+        targetCtx.fillStyle = grd;
+        targetCtx.fillRect(0, 0, w, h);
+        const rad = targetCtx.createRadialGradient(w*0.3, h*0.2, 0, w*0.3, h*0.2, Math.max(w,h)*0.6);
+        rad.addColorStop(0, 'rgba(255,255,255,0.35)');
+        rad.addColorStop(1, 'transparent');
+        targetCtx.fillStyle = rad;
+        targetCtx.fillRect(0, 0, w, h);
+      }
+      function updateAutoTime() {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2,'0');
+        const mm = String(now.getMinutes()).padStart(2,'0');
+        state.time = `${hh}:${mm}`;
+        const monthShort = now.toLocaleString('en-US', { month: 'short' });
+        const dd = String(now.getDate()).padStart(2,'0');
+        state.date = `${dd} ${monthShort}, ${now.getFullYear()}`;
+        $('time').value = state.time;
+        $('date').value = state.date;
+        draw();
+      }
+      function wrapText(text, maxWidth, fontSize) {
+        const lines = [];
+        const paragraphs = text.split(/\n/);
+        ctx.font = `${fontSize}px "Noto Serif SC", "Source Han Serif", "Microsoft YaHei", system-ui`;
+        paragraphs.forEach(p => {
+          let line = '';
+          const tokens = p.match(/\S+|\s/g) || [p];
+          tokens.forEach(tok => {
+            const test = line + tok;
+            const width = ctx.measureText(test).width;
+            if (width > maxWidth && line !== '') {
+              lines.push(line);
+              line = tok.trimStart();
+            } else {
+              line = test;
+            }
+          });
+          if (line) lines.push(line);
+        });
+        return lines;
+      }
+      function draw() {
+        const { w, h } = state.size;
+        ctx.clearRect(0,0,w,h);
+        drawBackground();
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const offCtx = off.getContext('2d');
+        drawBackgroundLocal(offCtx, w, h);
+        const padding = 36;
+        const cardW = Math.round(w * 0.86);
+        const cardH = Math.round(h * 0.62);
+        const cardX = Math.round((w - cardW)/2);
+        const cardY = Math.round(h * 0.16);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
+        drawRoundedRect(cardX, cardY, cardW, cardH, state.radius);
+        ctx.restore();
+        ctx.save();
+        drawRoundedRect(cardX, cardY, cardW, cardH, state.radius);
+        ctx.clip();
+        ctx.globalAlpha = 0.6;
+        const blurPx = exporting ? 0 : state.blur;
+        ctx.filter = `blur(${blurPx}px)`;
+        ctx.drawImage(off, 0, 0, w, h);
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `rgba(255,255,255,${state.opacity*0.7})`;
+        drawRoundedRect(cardX, cardY, cardW, cardH, state.radius);
+        ctx.fill();
+        const ca = hexToRgb(state.bgA);
+        const cc = hexToRgb(state.bgC);
+        const tint = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+        const alpha = Math.min(0.6, state.tintStrength/100 * 0.6);
+        tint.addColorStop(0, `rgba(${ca.r},${ca.g},${ca.b},${alpha})`);
+        tint.addColorStop(1, `rgba(${cc.r},${cc.g},${cc.b},${alpha})`);
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = tint;
+        drawRoundedRect(cardX, cardY, cardW, cardH, state.radius);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        const avatarSize = 64;
+        const avatarX = cardX + padding;
+        const avatarY = cardY + padding;
+        if (state.avatarImg) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(state.avatarImg, avatarX, avatarY, avatarSize, avatarSize);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#ddd';
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#222';
+        ctx.font = `700 28px "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(state.nickname || '', avatarX + avatarSize + 16, avatarY + 16);
+        const quoteX = cardX + padding;
+        const quoteY = avatarY + avatarSize + 24;
+        const quoteMaxW = cardW - padding*2;
+        ctx.fillStyle = '#2c2c2c';
+        ctx.font = `${state.quoteSize}px "Noto Serif SC", "Source Han Serif", "Microsoft YaHei", system-ui`;
+        ctx.textBaseline = 'top';
+        const lines = wrapText(state.quote, quoteMaxW, state.quoteSize);
+        const lh = state.quoteSize * state.lineHeight;
+        lines.forEach((line, i) => {
+          let x = quoteX;
+          if (state.align === 'center') {
+            const w2 = ctx.measureText(line).width;
+            x = quoteX + (quoteMaxW - w2)/2;
+          }
+          ctx.fillText(line, x, quoteY + i*lh);
+        });
+        ctx.fillStyle = 'rgba(51,51,51,0.7)';
+        ctx.font = `14px "Segoe UI","PingFang SC","Microsoft YaHei",system-ui`;
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${state.time} · ${state.date}`, quoteX, cardY + cardH - padding);
+        const badgeSize = 36;
+        const badgeX = cardX + cardW - padding - badgeSize;
+        const badgeY = cardY + padding;
+        ctx.save();
+        drawRoundedRect(badgeX, badgeY, badgeSize, badgeSize, 8);
+        ctx.clip();
+        if (state.badgeImg) {
+          ctx.drawImage(state.badgeImg, badgeX, badgeY, badgeSize, badgeSize);
+        } else {
+          ctx.fillStyle = '#ffd84d';
+          ctx.fillRect(badgeX, badgeY, badgeSize, badgeSize);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 20px system-ui';
+          ctx.textBaseline = 'middle';
+          ctx.textAlign = 'center';
+          ctx.fillText('J', badgeX + badgeSize/2, badgeY + badgeSize/2);
+        }
+        ctx.restore();
+      }
+      function readImage(file, cb) {
+        if (!file) return cb(null);
+        if (file.size > 2*1024*1024) { alert('文件过大：需≤2MB'); return cb(null); }
+        const fr = new FileReader();
+        fr.onload = () => { const img = new Image(); img.onload = () => cb(img); img.src = fr.result; };
+        fr.readAsDataURL(file);
+      }
+      function bind() {
+        $('nickname').addEventListener('input', e => { state.nickname = e.target.value; draw(); });
+        $('quote').addEventListener('input', e => { state.quote = e.target.value; draw(); });
+        $('time').addEventListener('input', e => { state.time = e.target.value; draw(); });
+        $('date').addEventListener('input', e => { state.date = e.target.value; draw(); });
+        $('bgA').addEventListener('input', e => { state.bgA = e.target.value; draw(); });
+        $('bgB').addEventListener('input', e => { state.bgB = e.target.value; draw(); });
+        $('bgC').addEventListener('input', e => { state.bgC = e.target.value; draw(); });
+        $('blur').addEventListener('input', e => { state.blur = Number(e.target.value); draw(); });
+        $('radius').addEventListener('input', e => { state.radius = Number(e.target.value); draw(); });
+        $('opacity').addEventListener('input', e => { state.opacity = Number(e.target.value)/100; draw(); });
+        $('quoteSize').addEventListener('input', e => { state.quoteSize = Number(e.target.value); draw(); });
+        $('lineHeight').addEventListener('input', e => { state.lineHeight = Number(e.target.value); draw(); });
+        $('align').addEventListener('change', e => { state.align = e.target.value; draw(); });
+        $('format').addEventListener('change', e => { state.format = e.target.value; });
+        $('tintStrength').addEventListener('input', e => { state.tintStrength = Number(e.target.value); draw(); });
+        $('themePreset').addEventListener('change', e => {
+          const p = palettes[e.target.value];
+          if (p) {
+            [state.bgA, state.bgB, state.bgC] = p;
+            $('bgA').value = state.bgA;
+            $('bgB').value = state.bgB;
+            $('bgC').value = state.bgC;
+            draw();
+          }
+        });
+        $('autoTime').addEventListener('change', e => {
+          state.autoTime = e.target.checked;
+          if (state.autoTime) {
+            updateAutoTime();
+            if (autoTimeTimer) clearInterval(autoTimeTimer);
+            autoTimeTimer = setInterval(updateAutoTime, 30000);
+          } else {
+            if (autoTimeTimer) { clearInterval(autoTimeTimer); autoTimeTimer = null; }
+          }
+        });
+        $('sizePreset').addEventListener('change', e => {
+          const [w,h] = e.target.value.split('x').map(Number);
+          state.size = { w, h };
+          setCanvasSize(w,h);
+          draw();
+        });
+        $('scale').addEventListener('change', e => { state.scale = Number(e.target.value); });
+        $('avatar').addEventListener('change', e => readImage(e.target.files[0], img => { state.avatarImg = img; draw(); }));
+        $('badge').addEventListener('change', e => readImage(e.target.files[0], img => { state.badgeImg = img; draw(); }));
+        $('resetBtn').addEventListener('click', () => {
+          Object.assign(state, {
+            nickname: 'ConnorWu',
+            quote: '追求自由，落地来看就是培养逃逸的能力',
+            time: '16:14',
+            date: '18 Sep, 2025',
+            bgA: '#f9b8c4', bgB: '#c7b7ff', bgC: '#a7d3ff',
+            blur: 20, radius: 24, opacity: 0.92,
+            quoteSize: 28, lineHeight: 1.6, align: 'left',
+            size: { w: 1200, h: 900 }, scale: 2, format: 'png',
+            avatarImg: null, badgeImg: null, tintStrength: 35, autoTime: true
+          });
+          setCanvasSize(state.size.w, state.size.h);
+          $('nickname').value = state.nickname;
+          $('quote').value = state.quote;
+          $('autoTime').checked = state.autoTime;
+          if (state.autoTime) {
+            updateAutoTime();
+            if (autoTimeTimer) clearInterval(autoTimeTimer);
+            autoTimeTimer = setInterval(updateAutoTime, 30000);
+          } else {
+            $('time').value = state.time;
+            $('date').value = state.date;
+          }
+          $('bgA').value = state.bgA;
+          $('bgB').value = state.bgB;
+          $('bgC').value = state.bgC;
+          $('blur').value = state.blur;
+          $('radius').value = state.radius;
+          $('opacity').value = Math.round(state.opacity*100);
+          $('quoteSize').value = state.quoteSize;
+          $('lineHeight').value = state.lineHeight;
+          $('align').value = state.align;
+          $('sizePreset').value = '1200x900';
+          $('scale').value = String(state.scale);
+          $('format').value = state.format;
+          $('tintStrength').value = String(state.tintStrength);
+          $('themePreset').value = 'sunrise';
+          draw();
+        });
+        $('downloadBtn').addEventListener('click', () => {
+          const tmp = document.createElement('canvas');
+          const { w, h } = state.size;
+          tmp.width = w * state.scale;
+          tmp.height = h * state.scale;
+          const tctx = tmp.getContext('2d');
+          tctx.imageSmoothingEnabled = true;
+          tctx.imageSmoothingQuality = 'high';
+          tctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
+          const url = tmp.toDataURL(`image/${state.format}`, 0.92);
+          const a = document.createElement('a');
+          const ts = new Date();
+          const name = `quote-${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}-${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}.${state.format === 'jpeg' ? 'jpg' : state.format}`;
+          a.href = url; a.download = name; a.click();
+        });
+      }
+      function init() {
+        $('nickname').value = state.nickname;
+        $('quote').value = state.quote;
+        $('autoTime').checked = state.autoTime;
+        if (state.autoTime) {
+          updateAutoTime();
+          if (autoTimeTimer) clearInterval(autoTimeTimer);
+          autoTimeTimer = setInterval(updateAutoTime, 30000);
+        } else {
+          $('time').value = state.time;
+          $('date').value = state.date;
+        }
+        bind(); setCanvasSize(state.size.w, state.size.h); draw();
+      }
+      init();
+    </script>
+  </body>
+</html>
